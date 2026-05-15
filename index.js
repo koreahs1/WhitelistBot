@@ -1,5 +1,9 @@
 require('dotenv').config();
 const { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder, Events, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits, MessageFlags } = require('discord.js');
+const rl = require('readline/promises').createInterface({
+    input: process.stdin,
+    output: process.stdout
+});
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
@@ -339,3 +343,48 @@ client.on(Events.InteractionCreate, async interaction => {
 });
 
 client.login(process.env.DISCORD_TOKEN);
+
+async function generateInviteLink() {
+    for (const [guildId, guild] of client.guilds.cache.entries()) {
+        console.log(`서버 이름: ${guild.name} | 서버 ID: ${guild.id}`);
+        if (await rl.question("초대 링크를 생성하시겠습니까? (y/n): ") !== "y") {
+            continue;
+        }
+        try {
+            const inviteChannel = guild.channels.cache.find(channel =>
+                channel.type === ChannelType.GuildText &&
+                channel.permissionsFor(guild.members.me).has('CreateInstantInvite'));
+            if (inviteChannel) {
+                const invite = await inviteChannel.createInvite({
+                    maxAge: 300,
+                    maxUses: 1,
+                    reason: '화이트리스트 인증 봇 사용으로 인한 초대 링크 생성'
+                });
+                console.log(`✅ ${guild.name} - 생성된 초대 링크: ${invite.url}`);
+            } else {
+                console.log(`❌ ${guild.name} - 초대 링크를 생성할 채널을 찾을 수 없습니다.`);
+            }
+        } catch (error) {
+            console.error(`❌ 초대 링크 생성 실패: ${error.message}`);
+        }
+        console.log('----------------------------------------------------');
+    }
+}
+
+async function generateQuestions() {
+    const response = await rl.question("어떤 작업을 시작하겠습니까?");
+
+    if (response === "초대 링크") {
+        generateInviteLink();
+        generateQuestions();
+        return;
+    } else if (response === "escape") {
+        rl.close();
+        return;
+    }
+
+    console.log('알 수 없는 작업입니다. 다시 시도해주세요.')
+    generateQuestions();
+}
+
+generateQuestions();
