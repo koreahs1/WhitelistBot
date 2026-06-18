@@ -352,8 +352,8 @@ client.on(Events.InteractionCreate, async interaction => {
 });
 
 client.on('channelCreate', async (channel) => {
+    //console.log(channel.guild.id, channel.name, process.env.SERVER_TICKET);
     if (!channel.isTextBased() || channel.guild.id !== process.env.SERVER_TICKET) return;
-
     if (channel.name.startsWith('ticket-')) {
         console.log(`새 티켓 감지: ${channel.name}`);
 
@@ -370,8 +370,10 @@ client.on('channelCreate', async (channel) => {
                     clearInterval(waitForMessage);
 
                     const msgContent = targetMessage.content;
-                    const userId = msgContent.match(/@<( [0-9]+)>/)[1];
+                    //console.log(msgContent);
+                    const userId = msgContent.match(/<@([0-9]+)>/)[1];
                     const username = (await client.users.fetch(userId)).username;
+                    console.log(userId, username);
 
                     sendGAS(targetMessage, channel, username);
                 }
@@ -457,7 +459,9 @@ async function generateQuestions() {
         return;
     } else if (response === "escape") {
         rl.close();
-        return;
+        client.destroy();
+        console.log('봇을 종료합니다.');
+        process.exit(0);
     }
 
     console.log('알 수 없는 작업입니다. 다시 시도해주세요.')
