@@ -5,7 +5,16 @@ const rl = require('readline/promises').createInterface({
     output: process.stdout
 });
 
-const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+const axios = require('axios');
+
+const client = new Client({
+    intents: [
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.MessageContent,
+        GatewayIntentBits.GuildMembers
+    ]
+});
 
 // Slash Command Definition
 const commands = [
@@ -341,6 +350,74 @@ client.on(Events.InteractionCreate, async interaction => {
         }
     }
 });
+
+client.on('channelCreate', async (channel) => {
+    if (!channel.isTextBased() || channel.guild.id !== process.env.SERVER_TICKET) return;
+
+    if (channel.name.startsWith('ticket-')) {
+        console.log(`새 티켓 감지: ${channel.name}`);
+
+        let attempts = 0;
+        const maxAttempts = 5;
+        let targetMessage = null;
+
+        const waitForMessage = setInterval(async () => {
+            attempts++;
+            try {
+                const messages = await channel.messages.fetch({ limit: 5 });
+                targetMessage = messages.find(msg => msg.author.bot && msg.embeds.length > 0);
+                if (targetMessage) {
+                    clearInterval(waitForMessage);
+
+                    const msgContent = targetMessage.content;
+                    const userId = msgContent.match(/@<( [0-9]+)>/)[1];
+                    const username = (await client.users.fetch(userId)).username;
+
+                    sendGAS(targetMessage, channel, username);
+                }
+            } catch (error) {
+                console.log(`티켓 채널 메시지를 가져오는데 실패했습니다. ${error}`);
+            }
+
+            if (attempts >= maxAttempts && !targetMessage) {
+                clearInterval(waitForMessage);
+                console.log('⚠️ 지급 메시지를 찾지 못하고 타임아웃되었습니다.');
+                return;
+            }
+        }, 1000);
+    }
+});
+
+async function sendGAS(message, channel, username) {
+    try {
+        const payload = {
+            id: message.id,
+            channel_name: message.channel.name,
+            guild_id: message.guild.id,
+            username: username,
+            embeds: message.embeds.map(embed => ({
+                title: embed.title || "",
+                description: embed.description || "",
+                fields: embed.fields || [],
+                footer: embed.footer ? { text: embed.footer.text } : null
+            }))
+        };
+
+        const response = await axios.post(process.env.GAS_URL, payload, {
+            headers: { 'Content-Type': 'application/json' }
+        });
+
+        if (response.data.status === 'success') {
+            console.log(`✅ 구글 시트에 성공적으로 기록되었습니다!`);
+            channel.send("✅ 인증 기록이 성공적으로 추가되었습니다! 티켓을 닫지 말고 관리자의 승인을 기다려주세요.");
+        } else {
+            console.log(`⚠️ GAS에서 오류 반환:`, response.data.message);
+            channel.send("❌ 인증 기록이 추가되지 않았습니다. 관리자에게 문의해주세요.");
+        }
+    } catch (error) {
+        console.error(`❌ GAS 전송 중 네트워크 에러 발생:`, error.message);
+    }
+}
 
 client.login(process.env.DISCORD_TOKEN);
 
