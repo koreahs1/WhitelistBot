@@ -375,7 +375,7 @@ client.on('channelCreate', async (channel) => {
                     const username = (await client.users.fetch(userId)).username;
                     console.log(userId, username);
 
-                    sendGAS(targetMessage, channel, username);
+                    sendGAS(targetMessage, channel, userId, username);
                 }
             } catch (error) {
                 console.log(`티켓 채널 메시지를 가져오는데 실패했습니다. ${error}`);
@@ -390,13 +390,15 @@ client.on('channelCreate', async (channel) => {
     }
 });
 
-async function sendGAS(message, channel, username) {
+async function sendGAS(message, channel, userId, username) {
     try {
         const payload = {
             id: message.id,
             channel_name: message.channel.name,
             guild_id: message.guild.id,
+            userId: userId,
             username: username,
+            ticket: message.channel.name.replace('ticket-', ''),
             embeds: message.embeds.map(embed => ({
                 title: embed.title || "",
                 description: embed.description || "",
