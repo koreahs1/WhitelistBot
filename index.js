@@ -246,8 +246,12 @@ client.on(Events.InteractionCreate, async interaction => {
                 });
                 if (res.data.status === 'success') {
                     await interaction.editReply({
-                        content: '✅ 인증 승인이 성공했습니다! 관리자는 이제 티켓을 닫아주세요.',
+                        content: '✅ 인증 승인이 성공했습니다! 역할 변경까지 기다려주세요.',
                     });
+                    const member = await interaction.guild.members.fetch(userId);
+                    await member.roles.add('1358758425433083934');
+                    await member.roles.remove('1358758295862640791');
+                    interaction.channel.send(`✅ 역할 변경이 완료되었습니다. 이제 티켓을 닫아주세요.`);
                 } else {
                     await interaction.editReply({
                         content: '❌ 인증 승인이 실패했습니다. 관리자에게 문의해주세요.',
