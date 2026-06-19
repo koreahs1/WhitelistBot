@@ -59,6 +59,20 @@ const commands = [
                         .setDescription('로블록스 유저 ID 또는 그룹 ID')
                         .setRequired(true)
                 )
+        ),
+    new SlashCommandBuilder()
+        .setName('인증')
+        .setDescription('멤버 인증 관련 명령어입니다.')
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName('연동재시도')
+                .setDescription('티켓 생성 후 봇이 DB와 연동하지 못했을 때 사용하는 명령어입니다.')
+        )
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName('승인')
+                .setDescription('승인되지 않은 티켓을 승인합니다. (관리자 전용)')
+
         )
 ].map(command => command.toJSON());
 
@@ -182,6 +196,73 @@ client.on(Events.InteractionCreate, async interaction => {
     }
 
     if (!interaction.isChatInputCommand()) return;
+
+    if (interaction.commandName === '인증') {
+        const allowedServer = process.env.SERVER_TICKET;
+        if (interaction.guildId !== allowedServer)
+            return interaction.reply({ content: '이 서버에서는 이 명령어를 사용할 수 없습니다.', flags: MessageFlags.Ephemeral }
+            );
+        if (!interaction.channel.name.startsWith('ticket-'))
+            return interaction.reply({ content: '이 채널은 티켓 채널이 아닙니다.', flags: MessageFlags.Ephemeral }
+            );
+
+        if (interaction.options.getSubcommand() === '연동재시도') {
+            await interaction.deferReply();
+            const messages = await interaction.channel.messages.fetch({ limit: 50 });
+            const lastMessage = messages.find(msg => msg.author.id === client.user.id);
+            if (lastMessage) {
+                if (!lastMessage.content.startsWith('✅')) {
+                    await interaction.editReply({
+                        content: '인증 기록 재등록 중입니다.',
+                    });
+                    onTicketChannelCreated(interaction.channel);
+                } else {
+                    await interaction.editReply({
+                        content: '이 채널은 이미 연동이 완료되었습니다.',
+                    });
+                }
+            } else {
+                await interaction.editReply({
+                    content: '인증 기록 재등록 중입니다.',
+                });
+                onTicketChannelCreated(interaction.channel);
+            }
+        } else if (interaction.options.getSubcommand() === '승인') {
+            if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator))
+                return interaction.reply({ content: "관리자만 이 명령어를 사용할 수 있습니다.", flags: MessageFlags.Ephemeral });
+            //find 1st message
+            const messages = await interaction.channel.messages.fetch({ limit: 50 });
+            const targetMessage = messages.find(msg => msg.author.bot && msg.embeds.length > 0);
+            if (targetMessage) {
+                const userId = getUserIdFromMessage(targetMessage.content);
+                const adminName = (await client.users.fetch(interaction.user.id)).username;
+                const payload = {
+                    ['userId']: userId,
+                    ['adminName']: adminName
+                }
+                await interaction.deferReply();
+                const res = await axios.post(process.env.GAS_URL + '&action-type=verify', payload, {
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                if (res.data.status === 'success') {
+                    await interaction.editReply({
+                        content: '✅ 인증 승인이 성공했습니다! 관리자는 이제 티켓을 닫아주세요.',
+                    });
+                } else {
+                    await interaction.editReply({
+                        content: '❌ 인증 승인이 실패했습니다. 관리자에게 문의해주세요.',
+                    });
+                    console.log(res.data.message);
+                }
+            } else {
+                await interaction.reply({
+                    content: '유저 정보를 찾을 수 없습니다.',
+                    flags: MessageFlags.Ephemeral
+                });
+            }
+
+        }
+    }
 
     if (interaction.commandName === '화이트리스트') {
         // 허용된 서버 필터링
@@ -351,46 +432,55 @@ client.on(Events.InteractionCreate, async interaction => {
     }
 });
 
+function getUserIdFromMessage(msgContent) {
+    return msgContent.match(/<@([0-9]+)>/)[1];
+}
+
+function onTicketChannelCreated(channel) {
+    console.log(`새 티켓 감지: ${channel.name}`);
+    channel.send("인증 기록 등록 중입니다. 잠시만 기다려주세요.");
+
+    let attempts = 0;
+    const maxAttempts = 5;
+    let targetMessage = null;
+
+    const waitForMessage = setInterval(async () => {
+        attempts++;
+        try {
+            const messages = await channel.messages.fetch({ limit: 5 });
+            targetMessage = messages.find(msg => msg.author.bot && msg.embeds.length > 0);
+            if (targetMessage) {
+                clearInterval(waitForMessage);
+
+                const msgContent = targetMessage.content;
+                //console.log(msgContent);
+                const userId = getUserIdFromMessage(msgContent);
+                const username = (await client.users.fetch(userId)).username;
+                console.log(userId, username);
+
+                sendGASBasicData(targetMessage, channel, userId, username);
+            }
+        } catch (error) {
+            console.log(`티켓 채널 메시지를 가져오는데 실패했습니다. ${error}`);
+        }
+
+        if (attempts >= maxAttempts && !targetMessage) {
+            clearInterval(waitForMessage);
+            console.log('⚠️ 지급 메시지를 찾지 못하고 타임아웃되었습니다.');
+            return;
+        }
+    }, 1000);
+}
+
 client.on('channelCreate', async (channel) => {
     //console.log(channel.guild.id, channel.name, process.env.SERVER_TICKET);
     if (!channel.isTextBased() || channel.guild.id !== process.env.SERVER_TICKET) return;
     if (channel.name.startsWith('ticket-')) {
-        console.log(`새 티켓 감지: ${channel.name}`);
-
-        let attempts = 0;
-        const maxAttempts = 5;
-        let targetMessage = null;
-
-        const waitForMessage = setInterval(async () => {
-            attempts++;
-            try {
-                const messages = await channel.messages.fetch({ limit: 5 });
-                targetMessage = messages.find(msg => msg.author.bot && msg.embeds.length > 0);
-                if (targetMessage) {
-                    clearInterval(waitForMessage);
-
-                    const msgContent = targetMessage.content;
-                    //console.log(msgContent);
-                    const userId = msgContent.match(/<@([0-9]+)>/)[1];
-                    const username = (await client.users.fetch(userId)).username;
-                    console.log(userId, username);
-
-                    sendGAS(targetMessage, channel, userId, username);
-                }
-            } catch (error) {
-                console.log(`티켓 채널 메시지를 가져오는데 실패했습니다. ${error}`);
-            }
-
-            if (attempts >= maxAttempts && !targetMessage) {
-                clearInterval(waitForMessage);
-                console.log('⚠️ 지급 메시지를 찾지 못하고 타임아웃되었습니다.');
-                return;
-            }
-        }, 1000);
+        onTicketChannelCreated(channel);
     }
 });
 
-async function sendGAS(message, channel, userId, username) {
+async function sendGASBasicData(message, channel, userId, username) {
     try {
         const payload = {
             id: message.id,
@@ -407,7 +497,7 @@ async function sendGAS(message, channel, userId, username) {
             }))
         };
 
-        const response = await axios.post(process.env.GAS_URL, payload, {
+        const response = await axios.post(process.env.GAS_URL + '&action-type=newTicket', payload, {
             headers: { 'Content-Type': 'application/json' }
         });
 
