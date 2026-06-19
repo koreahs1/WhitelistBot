@@ -1,10 +1,5 @@
 require('dotenv').config();
 const { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder, Events, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits, MessageFlags } = require('discord.js');
-const rl = require('readline/promises').createInterface({
-    input: process.stdin,
-    output: process.stdout
-});
-
 const axios = require('axios');
 
 const client = new Client({
@@ -519,7 +514,7 @@ async function sendGASBasicData(message, channel, userId, username) {
 
 client.login(process.env.DISCORD_TOKEN);
 
-async function generateInviteLink() {
+/*async function generateInviteLink() {
     for (const [guildId, guild] of client.guilds.cache.entries()) {
         console.log(`서버 이름: ${guild.name} | 서버 ID: ${guild.id}`);
         if (await rl.question("초대 링크를 생성하시겠습니까? (y/n): ") !== "y") {
@@ -564,4 +559,4 @@ async function generateQuestions() {
     generateQuestions();
 }
 
-generateQuestions();
+generateQuestions();*/
