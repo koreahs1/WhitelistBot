@@ -94,6 +94,7 @@ const workerRequest = async (method, path, body = null) => {
 
 client.once(Events.ClientReady, async () => {
     console.log(`Logged in as ${client.user.tag}!`);
+    console.log(`Current Time: ${new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })}`);
     try {
         console.log('Started refreshing application (/) commands.');
         // 전역으로 슬래시 명령어 등록
@@ -243,10 +244,25 @@ client.on(Events.InteractionCreate, async interaction => {
                     await interaction.editReply({
                         content: '✅ 인증 승인이 성공했습니다! 역할 변경까지 기다려주세요.',
                     });
-                    const member = await interaction.guild.members.fetch(userId);
-                    await member.roles.add('1358758425433083934');
-                    await member.roles.remove('1358758295862640791');
-                    interaction.channel.send(`✅ 역할 변경이 완료되었습니다. 이제 티켓을 닫아주세요.`);
+                    const member = await interaction.guild.members.fetch(userId).catch(() => null);
+                    if (!member) {
+                        await interaction.channel.send(`❌ 인증 승인이 실패했습니다. 유저를 찾을 수 없습니다.`);
+                        return;
+                    }
+                    const verifiedRole = interaction.options.getRole('인증');
+                    const unverifiedRole = interaction.options.getRole('미인증');
+                    try {
+                        if (verifiedRole) {
+                            await member.roles.add(verifiedRole);
+                        }
+                        if (unverifiedRole) {
+                            await member.roles.remove(unverifiedRole);
+                        }
+                        interaction.channel.send(`✅ 역할 변경이 완료되었습니다. 이제 티켓을 닫아주세요.`);
+                    } catch (err) {
+                        console.log(err);
+                        interaction.channel.send(`❌ 역할 변경이 실패했습니다. 관리자에게 문의해주세요.`);
+                    }
                 } else {
                     await interaction.editReply({
                         content: '❌ 인증 승인이 실패했습니다. 관리자에게 문의해주세요.',
