@@ -228,9 +228,15 @@ client.on(Events.InteractionCreate, async interaction => {
                 return interaction.reply({ content: "관리자만 이 명령어를 사용할 수 있습니다.", flags: MessageFlags.Ephemeral });
             //find 1st message
             const messages = await interaction.channel.messages.fetch({ limit: 50 });
-            const targetMessage = messages.find(msg => msg.author.bot && msg.embeds.length > 0);
+            const targetMessage = messages.find(msg => msg.author.bot && msg.embeds.length > 0 && msg.content !== '');
+            console.log('targetMessage', targetMessage);
+            //console.log('messages', messages.map(msg => { return { id: msg.id, content: msg.content } }));
             if (targetMessage) {
                 const userId = getUserIdFromMessage(targetMessage.content);
+                if (!userId) {
+                    await interaction.reply({ content: "유저 정보를 찾을 수 없습니다. 관리자에게 문의해 주세요.", flags: MessageFlags.Ephemeral });
+                    return;
+                }
                 const adminName = (await client.users.fetch(interaction.user.id)).username;
                 const payload = {
                     ['userId']: userId,
@@ -249,8 +255,9 @@ client.on(Events.InteractionCreate, async interaction => {
                         await interaction.channel.send(`❌ 인증 승인이 실패했습니다. 유저를 찾을 수 없습니다.`);
                         return;
                     }
-                    const verifiedRole = interaction.options.getRole('인증');
-                    const unverifiedRole = interaction.options.getRole('미인증');
+                    const verifiedRole = interaction.guild.roles.cache.get(process.env.ROLES_VERIFIED);
+                    const unverifiedRole = interaction.guild.roles.cache.get(process.env.ROLES_UNVERIFIED);
+                    //console.log('Verified Role:', verifiedRole?.id, 'Unverified Role:', unverifiedRole?.id, 'User:', userId, 'Member:', member, 'Guild:', interaction.guild);
                     try {
                         if (verifiedRole) {
                             await member.roles.add(verifiedRole);
@@ -448,7 +455,8 @@ client.on(Events.InteractionCreate, async interaction => {
 });
 
 function getUserIdFromMessage(msgContent) {
-    return msgContent.match(/<@([0-9]+)>/)[1];
+    //console.log('msgContent', msgContent);
+    return msgContent?.match(/<@([0-9]+)>/)?.[1] ?? null;
 }
 
 function onTicketChannelCreated(channel) {
@@ -470,6 +478,10 @@ function onTicketChannelCreated(channel) {
                 const msgContent = targetMessage.content;
                 //console.log(msgContent);
                 const userId = getUserIdFromMessage(msgContent);
+                if (!userId) {
+                    channel.send("유저 정보를 찾을 수 없습니다. 관리자에게 문의해 주세요.");
+                    return;
+                }
                 const username = (await client.users.fetch(userId)).username;
                 console.log(userId, username);
 
