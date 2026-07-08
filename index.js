@@ -467,7 +467,7 @@ client.on(Events.InteractionCreate, async interaction => {
             .setFooter({ text: `파일 크기: ${size}B` })
             .setColor(0xFFFFFF)
             .setTimestamp();
-        if (imgUrl.toLowerCase.endsWith('mp4')) {
+        if (imgUrl.toLowerCase().endsWith('.mp4')) {
             content = imgUrl;
         } else {
             embed.setImage(imgUrl);
