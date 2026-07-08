@@ -1,5 +1,5 @@
 require('dotenv').config();
-const { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder, Events, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits, MessageFlags } = require('discord.js');
+const { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder, Events, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits, MessageFlags, AttachmentBuilder } = require('discord.js');
 const axios = require('axios');
 
 const client = new Client({
@@ -461,18 +461,43 @@ client.on(Events.InteractionCreate, async interaction => {
         const res = await resJson.json();
         const imgUrl = res.url;
         if (!imgUrl) return await interaction.editReply('사진을 구하지 못했습니다. 다시 시도해주세요.');
-        const size = res.fileSizeBytes;
-        let content;
+        const size = (res.fileSizeBytes / 1024 / 1024).toFixed(2);
+        let descSet = false;
+        let buttonLabel;
+        let files = [];
         let embed = new EmbedBuilder()
-            .setFooter({ text: `파일 크기: ${size}B` })
+            .setFooter({ text: `파일 크기: ${size}MB` })
             .setColor(0xFFFFFF)
             .setTimestamp();
         if (imgUrl.toLowerCase().endsWith('.mp4')) {
-            content = imgUrl;
+            //console.log(imgUrl);
+            buttonLabel = '영상 보기';
+            if (size > 9) {
+                embed.setDescription("영상 크기가 9MB를 초과하여 디스코드에 첨부할 수 없습니다. 아래의 영상 보기 버튼을 눌러주세요.")
+                descSet = true;
+            } else {
+                const attachment = new AttachmentBuilder(imgUrl, { name: 'video.mp4' });
+                files.push(attachment);
+            }
         } else {
+            buttonLabel = '사진 보기';
             embed.setImage(imgUrl);
         }
-        await interaction.editReply({ embeds: [embed], content: content });
+        if (!descSet) {
+            embed.setDescription(`${buttonLabel.slice(0, 2)} 크기가 크면 보이지 않을 수 있습니다. 보이지 않으면 아래의 '${buttonLabel}' 버튼을 눌러주세요.`);
+        }
+        const row = new ActionRowBuilder()
+            .addComponents(
+                new ButtonBuilder()
+                    .setLabel(buttonLabel)
+                    .setStyle(ButtonStyle.Link)
+                    .setURL(imgUrl)
+            );
+
+        const replyOptions = { embeds: [embed], components: [row] };
+        if (files.length > 0) replyOptions.files = files;
+
+        await interaction.editReply(replyOptions);
     }
 });
 
