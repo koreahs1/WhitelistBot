@@ -460,13 +460,19 @@ client.on(Events.InteractionCreate, async interaction => {
         const resJson = await fetch('https://random.dog/woof.json');
         const res = await resJson.json();
         const imgUrl = res.url;
+        if (!imgUrl) return await interaction.editReply('사진을 구하지 못했습니다. 다시 시도해주세요.');
         const size = res.fileSizeBytes;
-        const embed = new EmbedBuilder()
-            .setImage(imgUrl)
+        let content;
+        let embed = new EmbedBuilder()
             .setFooter({ text: `파일 크기: ${size}B` })
             .setColor(0xFFFFFF)
             .setTimestamp();
-        await interaction.editReply({ embeds: [embed] });
+        if (imgUrl.toLowerCase.endsWith('mp4')) {
+            content = imgUrl;
+        } else {
+            embed.setImage(imgUrl);
+        }
+        await interaction.editReply({ embeds: [embed], content: content });
     }
 });
 
