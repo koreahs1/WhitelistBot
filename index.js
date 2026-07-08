@@ -68,7 +68,10 @@ const commands = [
                 .setName('승인')
                 .setDescription('승인되지 않은 티켓을 승인합니다. (관리자 전용)')
 
-        )
+        ),
+    new SlashCommandBuilder()
+        .setName('강아지')
+        .setDescription('무작위로 강아지 사진을 보여줍니다.')
 ].map(command => command.toJSON());
 
 const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
@@ -451,6 +454,18 @@ client.on(Events.InteractionCreate, async interaction => {
             console.error('Command Execution Error:', error);
             return interaction.editReply('명령어 처리 중 오류가 발생했습니다.');
         }
+    }
+    if (interaction.commandName === '강아지') {
+        await interaction.deferReply();
+        const resJson = await fetch('https://random.dog/woof.json');
+        const imgUrl = resJson.url;
+        const size = resJson.fileSizeBytes;
+        const embed = new EmbedBuilder()
+            .setImage(imgUrl)
+            .setFooter({ text: `파일 크기: ${size}B` })
+            .setColor(0xFFFFFF)
+            .setTimestamp();
+        await interaction.editReply({ embeds: [embed] });
     }
 });
 
