@@ -458,8 +458,9 @@ client.on(Events.InteractionCreate, async interaction => {
     if (interaction.commandName === '강아지') {
         await interaction.deferReply();
         const resJson = await fetch('https://random.dog/woof.json');
-        const imgUrl = resJson.url;
-        const size = resJson.fileSizeBytes;
+        const res = await resJson.json();
+        const imgUrl = res.url;
+        const size = res.fileSizeBytes;
         const embed = new EmbedBuilder()
             .setImage(imgUrl)
             .setFooter({ text: `파일 크기: ${size}B` })
