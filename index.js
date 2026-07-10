@@ -469,7 +469,8 @@ client.on(Events.InteractionCreate, async interaction => {
             .setFooter({ text: `파일 크기: ${size}MB` })
             .setColor(0xFFFFFF)
             .setTimestamp();
-        if (imgUrl.toLowerCase().endsWith('.mp4')) {
+        const imgFormats = ['.jpg', '.jpeg', '.png', '.webp'];
+        if (!imgFormats.includes(imgUrl.toLowerCase())) {
             //console.log(imgUrl);
             buttonLabel = '영상 보기';
             if (size > 9) {
