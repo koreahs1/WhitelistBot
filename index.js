@@ -470,7 +470,7 @@ client.on(Events.InteractionCreate, async interaction => {
             .setColor(0xFFFFFF)
             .setTimestamp();
         const imgFormats = ['.jpg', '.jpeg', '.png', '.webp'];
-        if (!imgFormats.includes(imgUrl.toLowerCase())) {
+        if (!imgUrl.toLowerCase().includes(imgFormats)) {
             //console.log(imgUrl);
             buttonLabel = '영상 보기';
             if (size > 9) {
