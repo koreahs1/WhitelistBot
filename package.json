@@ -2,7 +2,7 @@
   "name": "whitelistbot",
   "version": "1.0.0",
   "description": "whitelist bot for myself.",
-  "license": "ISC",
+  "license": "MIT",
   "author": "KOREAHS",
   "type": "commonjs",
   "main": "index.js",
