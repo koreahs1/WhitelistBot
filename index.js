@@ -123,11 +123,9 @@ client.on(Events.InteractionCreate, async interaction => {
         const robloxId = robloxIdFieldValue?.replace(/`/g, '');
 
         if (interaction.customId.startsWith('approve_')) {
-            const documentId = interaction.customId.replace('approve_', '');
-
             try {
                 // Worker API 호출: DB 업데이트
-                const res = await workerRequest('PATCH', `/admin?id=${documentId}`);
+                const res = await workerRequest('PATCH', `/admin?id=${robloxId}`);
                 const updatedData = res.status === 200 ? res.data.data : null;
 
                 if (updatedData) {
